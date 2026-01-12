@@ -1,4 +1,5 @@
-# Kafka → Snowflake → MCP (Agent Tools) Project
+# Real-Time ML Data & Feature Pipeline (Infra & CI Reliability)
+## Kafka → Snowflake → MCP (Agent Tools) Project
 
 This repo runs locally with Docker:
 - Kafka + Zookeeper
