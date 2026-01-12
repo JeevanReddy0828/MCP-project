@@ -1,0 +1,30 @@
+{
+  "name": "snowflake-sink-rtintel",
+  "config": {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "tasks.max": "2",
+
+    "topics": "${TOPICS}",
+    "snowflake.topic2table.map": "${TOPIC2TABLE_MAP}",
+
+    "snowflake.url.name": "${SNOWFLAKE_ACCOUNT_URL}",
+    "snowflake.user.name": "${SNOWFLAKE_USER}",
+    "snowflake.private.key": "${SNOWFLAKE_PRIVATE_KEY}",
+    "snowflake.private.key.passphrase": "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE}",
+
+    "snowflake.database.name": "${SNOWFLAKE_DATABASE}",
+    "snowflake.schema.name": "${SNOWFLAKE_SCHEMA}",
+    "snowflake.role.name": "${SNOWFLAKE_ROLE}",
+
+    "buffer.count.records": "5000",
+    "buffer.flush.time": "30",
+    "buffer.size.bytes": "5000000",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "com.snowflake.kafka.connector.records.SnowflakeJsonConverter",
+
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true"
+  }
+}
