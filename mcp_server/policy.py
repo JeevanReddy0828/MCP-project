@@ -9,7 +9,7 @@ def validate_readonly_sql(sql: str) -> None:
     s = (sql or "").strip().strip(";")
     if not s:
         raise ValueError("SQL is empty.")
-    if not s.lower().startswith("select"):
+    if not (s.lower().startswith("select") or s.lower().startswith("with")):
         raise ValueError("Only SELECT queries are allowed.")
     if DISALLOWED.search(s):
         raise ValueError("Query contains disallowed keywords.")

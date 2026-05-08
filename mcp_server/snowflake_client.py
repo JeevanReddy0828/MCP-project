@@ -3,8 +3,14 @@ import snowflake.connector
 
 def get_conn():
     account_url = os.environ["SNOWFLAKE_ACCOUNT_URL"]
-    # Derive "account" by stripping protocol/port
-    account = account_url.replace("https://", "").split(":")[0]
+    # Derive account identifier — strip protocol, port, and domain suffix
+    # (the Python connector appends .snowflakecomputing.com itself)
+    account = (
+        account_url
+        .replace("https://", "")
+        .split(":")[0]
+        .replace(".snowflakecomputing.com", "")
+    )
 
     return snowflake.connector.connect(
         user=os.environ["SNOWFLAKE_USER"],
