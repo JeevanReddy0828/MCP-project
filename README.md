@@ -1,12 +1,21 @@
 # Kafka → Snowflake → MCP Pipeline
 
-Real-time streaming ETL pipeline: a Python producer emits `orders` and `payments` events into Kafka, Kafka Connect sinks them into Snowflake RAW tables, a scheduled Snowflake MERGE task promotes data into typed CURATED tables every minute, and an MCP server exposes the pipeline state as queryable tools.
+Real-time payment operations monitoring built on a streaming ETL pipeline. A Python producer emits `orders` and `payments` events into Kafka every 200ms, Kafka Connect sinks them into Snowflake, a scheduled MERGE task promotes data into typed CURATED tables every minute, and an MCP server exposes the live pipeline state as tools an AI agent can query.
 
 ```
-Producer → Kafka → Kafka Connect → Snowflake RAW → Streams → MERGE Task → CURATED → Analytics View
-                                                                               ↑
-                                                                           MCP Server
+Producer → Kafka → Kafka Connect → Snowflake RAW → Streams → MERGE Task → CURATED → Analytics Views
+                                                                                           ↑
+                                                                                       MCP Server
 ```
+
+### Use case
+
+An e-commerce platform processes thousands of orders per minute across multiple payment methods. When something goes wrong — a payment gateway starts failing, revenue drops unexpectedly, or the data pipeline itself backs up — the on-call team needs answers fast. The MCP server turns this pipeline into a queryable operations layer:
+
+- **Is our payment processor failing?** → `payment_failure_rate()` shows failure % per minute; a spike means a gateway issue or fraud wave
+- **Did revenue just drop?** → `revenue_anomaly()` compares the last 5 minutes against a 30-minute baseline and returns the % change
+- **Are customers completing checkout?** → `order_conversion_rate()` tracks what % of orders result in a payment
+- **Is the pipeline itself the problem?** → `pipeline_summary()` returns connector state, Kafka consumer lag, and Snowflake ingest throughput in one call
 
 ---
 
@@ -49,6 +58,7 @@ Run each script in Snowflake in this order. In Snowflake Workspaces, run stateme
 snowflake/init.sql       -- database, schemas, RAW tables, views
 snowflake/transforms.sql -- CURATED tables, analytics view
 snowflake/tasks.sql      -- WH_ETL warehouse, streams, 1-minute MERGE task
+snowflake/analytics.sql  -- payment failure rate and order conversion views
 ```
 
 ### 4. Start the pipeline
@@ -90,17 +100,33 @@ SELECT * FROM RT_INTEL.ANALYTICS.V_REVENUE_PER_MINUTE LIMIT 10;
 
 ## MCP Server
 
-The MCP server exposes 5 tools over stdio:
+The MCP server exposes 9 tools over stdio, grouped by concern:
+
+**Payment operations**
 
 | Tool | Description |
 |---|---|
-| `run_sql(query, limit)` | Read-only SELECT on Snowflake (SELECT only, DDL/DML blocked) |
-| `revenue_last_minutes(minutes)` | Revenue from `V_REVENUE_PER_MINUTE` for the last N minutes |
-| `kafka_end_offsets(topic)` | Latest partition offsets for a topic |
-| `kafka_consumer_lag(topic, group)` | Consumer lag per partition + total |
-| `connector_health(connector_name)` | Kafka Connect connector status |
+| `payment_failure_rate(minutes=10)` | Failure % per minute — spike = gateway issue or fraud |
+| `order_conversion_rate(minutes=10)` | % of orders that result in a PAID payment per minute |
+| `revenue_last_minutes(minutes=60)` | Revenue per minute for the last N minutes |
+| `revenue_anomaly(lookback_minutes=5, baseline_minutes=30)` | % change vs rolling baseline — flags drops and spikes |
 
-To connect an MCP client to the server:
+**Pipeline health**
+
+| Tool | Description |
+|---|---|
+| `pipeline_summary()` | Connector state + Kafka lag + Snowflake ingest throughput in one call |
+| `connector_health(connector_name)` | Kafka Connect connector and task states |
+| `kafka_consumer_lag(topic, group)` | Consumer lag per partition |
+| `kafka_end_offsets(topic)` | Latest partition offsets |
+
+**Escape hatch**
+
+| Tool | Description |
+|---|---|
+| `run_sql(query, limit=50)` | Ad-hoc read-only SELECT against any Snowflake table or view |
+
+To connect an MCP client:
 
 ```bash
 docker compose exec -T mcp python -m mcp_server.server
@@ -173,5 +199,7 @@ RT_INTEL
 │   ├── ORDERS              -- typed, deduped by MERGE task
 │   └── PAYMENTS            -- typed, deduped by MERGE task
 └── ANALYTICS
-    └── V_REVENUE_PER_MINUTE  -- revenue grouped by minute (PAID only)
+    ├── V_REVENUE_PER_MINUTE    -- revenue grouped by minute (PAID only)
+    ├── V_PAYMENT_FAILURE_RATE  -- failure % per minute
+    └── V_ORDER_CONVERSION      -- order-to-payment conversion rate per minute
 ```
